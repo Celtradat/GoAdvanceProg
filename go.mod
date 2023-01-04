@@ -1,4 +1,4 @@
-module greenlight.aitu.kz
+module greenlight.arlanchik.net
 
 go 1.19
 

@@ -5,19 +5,19 @@ import (
 	"flag"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"greenlight.arlanchik.net/internal/data"
 	"log"
 	"net/http"
 	"os"
 	"time"
 )
 
-const version = "1.0.1"
+const version = "1.0.0"
 
 type config struct {
-	port int
-	env  string
-	db   struct {
+	port   int
+	env    string
+	dbpool struct {
 		dsn          string
 		maxOpenConns int
 		maxIdleConns int
@@ -28,32 +28,40 @@ type config struct {
 type application struct {
 	config config
 	logger *log.Logger
+	models data.Models
 }
 
 func main() {
-
 	var cfg config
-	flag.IntVar(&cfg.port, "port", 4000, "API server port")
-	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
-	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("GREENLIGHT_DB_DSN"), "PostgreSQL DSN")
 
-	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
-	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
-	flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
+	flag.IntVar(&cfg.port, "port", 4000, "API Server port")
+	flag.StringVar(&cfg.env, "env", "development", "Environment(development| staging| production)")
+
+	flag.StringVar(&cfg.dbpool.dsn, "db-dsn", "postgres://greenlight:pa55word@localhost/greenlight?sslmode=disable", "PostgreSQL DSN")
+
+	flag.IntVar(&cfg.dbpool.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
+	flag.IntVar(&cfg.dbpool.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
+	flag.StringVar(&cfg.dbpool.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
 
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
+
 	pool, err := openDB(cfg)
 	if err != nil {
 		logger.Fatal(err)
 	}
+
 	defer pool.Close()
+
 	logger.Printf("database connection pool established")
+
 	app := &application{
 		config: cfg,
 		logger: logger,
+		models: data.NewModels(pool),
 	}
+
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),
 		Handler:      app.routes(),
@@ -67,18 +75,20 @@ func main() {
 }
 
 func openDB(cfg config) (*pgxpool.Pool, error) {
-
-	pool, err := pgxpool.New(context.Background(), cfg.db.dsn)
+	config, err := pgxpool.ParseConfig(cfg.dbpool.dsn)
+	config.MaxConns = int32(cfg.dbpool.maxOpenConns)
+	pool, err := pgxpool.New(context.Background(), cfg.dbpool.dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	pool.Config().MaxConnIdleTime, err = time.ParseDuration(cfg.db.maxIdleTime)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+	err = pool.Ping(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	pool.Config().MaxConns = int32(cfg.db.maxOpenConns)
 
 	return pool, nil
+
 }
