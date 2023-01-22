@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"greenlight.arlanchik.net/internal/validator"
+	"greenlight.uali.net/internal/validator"
 	"time"
 )
 

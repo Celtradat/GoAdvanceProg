@@ -3,8 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
-	"greenlight.arlanchik.net/internal/data"
-	"greenlight.arlanchik.net/internal/validator"
+	"greenlight.uali.net/internal/data"
+	"greenlight.uali.net/internal/validator"
 	"net/http"
 )
 

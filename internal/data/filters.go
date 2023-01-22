@@ -1,7 +1,7 @@
 package data
 
 import (
-	"greenlight.arlanchik.net/internal/validator"
+	"greenlight.uali.net/internal/validator"
 	"math"
 	"strings"
 )
